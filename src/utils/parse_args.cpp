@@ -11,7 +11,7 @@ struct ReplicaOptions {
   std::vector<std::string> otherIds;
 };
 
-ReplicaOptions parse_args(const int argc, char *argv[]) {
+ReplicaOptions parse_args_opts(const int argc, char *argv[]) {
   ReplicaOptions opts = ReplicaOptions{};
 
   int c;
@@ -52,5 +52,25 @@ ReplicaOptions parse_args(const int argc, char *argv[]) {
     opts.otherIds.push_back(argv[optind]);
     optind++;
   }
+  return opts;
+}
+
+ReplicaOptions parse_args(const int argc, char *argv[]) {
+  ReplicaOptions opts = ReplicaOptions{};
+
+  if (argc < 4) {
+    throw;
+  }
+
+  for (int i = 0; i < argc; ++i) {
+    if (i == 0) {
+      opts.port = std::atoi(argv[i]);
+    } else if (i == 1) {
+      opts.id = argv[i];
+    } else {
+      opts.otherIds.push_back(argv[i]);
+    }
+  }
+
   return opts;
 }

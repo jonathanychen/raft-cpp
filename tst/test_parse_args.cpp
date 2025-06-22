@@ -1,4 +1,4 @@
-#include "../src/utils/parse_args.h"
+#include "utils/parse_args.h"
 #include <gtest/gtest.h>
 
 TEST(RaftOrderBook, ParseArgs) {}

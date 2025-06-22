@@ -15,6 +15,8 @@ set(SOURCES
     src/utils/parse_args.cpp
 )
 
+include_directories(${PROJECT_SOURCE_DIR}/src)
+
 add_executable(raft_order_book ${SOURCES})
 
 # == Testing ==

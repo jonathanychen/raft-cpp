@@ -1,3 +1,4 @@
+#include "replica/replica.h"
 #include "utils/parse_args.h"
 #include <cstdlib>
 #include <iostream>
@@ -27,8 +28,12 @@ int main(int argc, char *argv[]) {
   // 1. Parse main arguments and place into options struct
   std::cout << "Parsed arguments!\n";
 
+  Replica server = Replica(opts);
+
   // 2. Start replica loop
   std::cout << "Replica running.\n";
+
+  server.run();
 
   return EXIT_SUCCESS;
 }

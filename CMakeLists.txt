@@ -13,6 +13,7 @@ project(RaftKeyValueStore)
 set(SOURCES
     src/main.cpp
     src/utils/parse_args.cpp
+    src/replica/replica.cpp
 )
 include(FetchContent)
 

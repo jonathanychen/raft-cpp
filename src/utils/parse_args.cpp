@@ -1,15 +1,9 @@
 #include <cstdlib>
 #include <getopt.h>
-#include <iostream>
-#include <string>
 #include <unistd.h>
 #include <vector>
 
-struct ReplicaOptions {
-  int port;
-  std::string id;
-  std::vector<std::string> otherIds;
-};
+#include "replica/replica.h"
 
 ReplicaOptions parse_args_opts(const int argc, char *argv[]) {
   ReplicaOptions opts = ReplicaOptions{};
@@ -37,7 +31,7 @@ ReplicaOptions parse_args_opts(const int argc, char *argv[]) {
       break;
 
     case 'i':
-      opts.id = optarg;
+      opts.id = std::atoi(optarg);
       break;
 
     case '?':
@@ -62,10 +56,12 @@ ReplicaOptions parse_args(const int argc, char *argv[]) {
     throw;
   }
 
-  for (int i = 0; i < argc; ++i) {
-    if (i == 0) {
-      opts.port = std::atoi(argv[i]);
-    } else if (i == 1) {
+  for (int i = 1; i < argc; ++i) {
+    int num = std::atoi(argv[i]);
+
+    if (i == 1) {
+      opts.port = num;
+    } else if (i == 2) {
       opts.id = argv[i];
     } else {
       opts.otherIds.push_back(argv[i]);

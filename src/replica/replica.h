@@ -23,7 +23,7 @@ private:
 
 public:
   Replica(ReplicaOptions opts);
-  int run();
+  void run();
 };
 
 #endif

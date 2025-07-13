@@ -14,6 +14,7 @@ set(SOURCES
     src/main.cpp
     src/utils/parse_args.cpp
     src/replica/replica.cpp
+    src/replica/messages.cpp
 )
 include(FetchContent)
 
@@ -52,6 +53,7 @@ target_link_libraries(
     3700kvstore_test
     PRIVATE
     GTest::gtest_main
+    nlohmann_json::nlohmann_json
 )
 
 include(GoogleTest)

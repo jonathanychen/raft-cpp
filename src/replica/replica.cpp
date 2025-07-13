@@ -3,12 +3,18 @@
 #include <cstdio>
 #include <cstdlib>
 #include <fcntl.h>
+#include <functional>
 #include <iostream>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <nlohmann/json.hpp>
+#include <replica/messages.h>
 #include <replica/replica.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <unordered_map>
+
+using json = nlohmann::json;
 
 static int BACKLOG_SIZE = 5;
 static const char *LOCALHOST = "localhost";
@@ -20,21 +26,21 @@ Replica::Replica(ReplicaOptions opts) {
   otherIds = opts.otherIds;
 }
 
-// TODO: refactor this into smaller helper functions
 void Replica::run() {
   this->setup_sockets();
 
-  std::string hello = "{\"src\": \"" + id +
-                      "\", \"dst\": \"FFFF\", \"leader\": \"FFFF\", \"type\": "
-                      "\"hello\", \"MID\": \"" +
-                      id + "\"}";
-  char const *helloCstr = hello.c_str();
+  json hello = {
+      {"src", id},       {"dst", "FFFF"}, {"leader", "FFFF"},
+      {"type", "hello"}, {"MID", id},
+  };
 
   this->send_message(hello);
 
   while (true) {
-    std::string message = this->recv_message();
-    std::cout << message << std::endl;
+    json message = this->recv_message();
+    std::cout << message.dump(2) << std::endl;
+
+    match_message_type(message);
   }
 
   freeaddrinfo(clientinfo);
@@ -91,15 +97,18 @@ int Replica::setup_sockets() {
   return 0;
 }
 
-int Replica::send_message(std::string message) {
+int Replica::send_message(json message) {
+  std::string message_str = message.dump();
+
   int bytes_sent;
-  bytes_sent = sendto(conn, message.c_str(), message.length(), 0,
+  bytes_sent = sendto(conn, message_str.c_str(), message_str.length(), 0,
                       clientinfo->ai_addr, clientinfo->ai_addrlen);
   if (bytes_sent < 0) {
     std::cout << "error sending data" << std::endl;
     fprintf(stderr, "sendto error: %s\n", strerror(errno));
   } else if (bytes_sent > 0) {
     std::cout << "successfully sent message!" << std::endl;
+    std::cout << message.dump(2);
   } else {
     std::cout << "something else happened" << std::endl;
   }
@@ -107,7 +116,7 @@ int Replica::send_message(std::string message) {
   return bytes_sent;
 }
 
-std::string Replica::recv_message() {
+json Replica::recv_message() {
   char buffer[1024];
   int bytes_received;
 
@@ -125,5 +134,36 @@ std::string Replica::recv_message() {
   }
 
   std::string result(buffer, bytes_received);
-  return result;
+
+  json message = json::parse(result);
+
+  return message;
+}
+
+void Replica::match_message_type(json message) {
+  std::string type = message["type"];
+
+  std::unordered_map<std::string, std::function<void()>> commands = {
+      {"get",
+       [message, this]() {
+         GetRequest request = message.template get<GetRequest>();
+         this->handle_get(request);
+       }},
+      {"put", [message, this]() {
+         PutRequest request = message.template get<PutRequest>();
+         this->handle_put(request);
+       }}};
+
+  commands[type]();
+}
+
+void Replica::handle_get(GetRequest request) {}
+
+void Replica::handle_put(PutRequest request) {
+  PutFailResponse response = {request.dst, request.src, id, request.MID,
+                              "fail"};
+
+  json message = response;
+
+  this->send_message(message);
 }

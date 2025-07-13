@@ -22,11 +22,28 @@ Replica::Replica(ReplicaOptions opts) {
 
 // TODO: refactor this into smaller helper functions
 void Replica::run() {
+  this->setup_sockets();
+
+  std::string hello = "{\"src\": \"" + id +
+                      "\", \"dst\": \"FFFF\", \"leader\": \"FFFF\", \"type\": "
+                      "\"hello\", \"MID\": \"" +
+                      id + "\"}";
+  char const *helloCstr = hello.c_str();
+
+  this->send_message(hello);
+
+  while (true) {
+    std::string message = this->recv_message();
+    std::cout << message << std::endl;
+  }
+
+  freeaddrinfo(clientinfo);
+}
+
+int Replica::setup_sockets() {
   // See Beej's guide for more in-depth explanations
   int status;
-  struct addrinfo hints, *servinfo, *clientinfo;
-  struct sockaddr_storage simulator;
-  socklen_t addr_size = sizeof simulator;
+  struct addrinfo hints, *servinfo;
 
   // Set properties for getaddrinfo usage
   memset(&hints, 0, sizeof hints);
@@ -46,18 +63,18 @@ void Replica::run() {
     exit(1);
   }
 
-  int sock =
+  conn =
       socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
-  if (sock == -1) {
+  if (conn == -1) {
     fprintf(stderr, "socket error: %s\n", strerror(errno));
     exit(1);
   }
 
   // Allow socket reusage
   int opt = 1;
-  setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+  setsockopt(conn, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
 
-  int binded = bind(sock, servinfo->ai_addr, servinfo->ai_addrlen);
+  int binded = bind(conn, servinfo->ai_addr, servinfo->ai_addrlen);
   if (binded == -1) {
     fprintf(stderr, "bind error: %s\n", strerror(errno));
     exit(1);
@@ -65,16 +82,19 @@ void Replica::run() {
 
   freeaddrinfo(servinfo);
 
-  std::string hello = "{\"src\": \"" + id +
-                      "\", \"dst\": \"FFFF\", \"leader\": \"FFFF\", \"type\": "
-                      "\"hello\", \"MID\": \"" +
-                      id + "\"}";
-  char const *helloCstr = hello.c_str();
+  // Set read timeout
+  struct timeval tv;
+  tv.tv_sec = 10;
+  tv.tv_usec = 0;
+  setsockopt(conn, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
+  return 0;
+}
+
+int Replica::send_message(std::string message) {
   int bytes_sent;
-  bytes_sent = sendto(sock, hello.c_str(), hello.length(), 0,
+  bytes_sent = sendto(conn, message.c_str(), message.length(), 0,
                       clientinfo->ai_addr, clientinfo->ai_addrlen);
-
   if (bytes_sent < 0) {
     std::cout << "error sending data" << std::endl;
     fprintf(stderr, "sendto error: %s\n", strerror(errno));
@@ -84,34 +104,26 @@ void Replica::run() {
     std::cout << "something else happened" << std::endl;
   }
 
+  return bytes_sent;
+}
+
+std::string Replica::recv_message() {
   char buffer[1024];
   int bytes_received;
 
-  // Set read timeout
-  // struct timeval tv;
-  // tv.tv_sec = 10;
-  // tv.tv_usec = 0;
-  // setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+  bytes_received = recvfrom(conn, buffer, sizeof buffer, 0,
+                            (struct sockaddr *)&simulator, &addr_size);
 
-  while (true) {
-    bytes_received = recvfrom(sock, buffer, sizeof buffer, 0,
-                              (struct sockaddr *)&simulator, &addr_size);
-
-    if (bytes_received < 0) {
-      std::cout << "error receiving data" << std::endl;
-      fprintf(stderr, "recvfrom error: %s\n", strerror(errno));
-    } else if (bytes_received == 0) {
-      std::cout << "no data received, continuing" << std::endl;
-    } else {
-      std::cout << "received message!" << std::endl;
-      ;
-    }
-
-    for (int i = 0; i < bytes_received; ++i) {
-      std::cout << buffer[i];
-    }
-    std::cout << std::endl;
+  if (bytes_received < 0) {
+    std::cout << "error receiving data" << std::endl;
+    fprintf(stderr, "recvfrom error: %s\n", strerror(errno));
+  } else if (bytes_received == 0) {
+    std::cout << "no data received, continuing" << std::endl;
+  } else {
+    std::cout << "received message!" << std::endl;
+    ;
   }
 
-  freeaddrinfo(clientinfo);
+  std::string result(buffer, bytes_received);
+  return result;
 }
